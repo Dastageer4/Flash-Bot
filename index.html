@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flash Chat</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism-okaidia.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #add4be;
+            --user-bg: #ffa702;
+            --bot-bg: #ff6c32;
+            --text-light: #daf5fc;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui;
+            margin: 0;
+            background: #34495e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .chat-container {
+            width: 100%;
+            max-width: 900px;
+            background: #2c3e50;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            margin: 20px;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            height: 70vh;
+            padding: 25px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 18px 25px;
+            border-radius: 25px;
+            animation: messageSlide 0.4s ease-out;
+            position: relative;
+            line-height: 1.6;
+            color: var(--text-light);
+        }
+
+        .user-message {
+            background: var(--user-bg);
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message {
+            background: var(--bot-bg);
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            position: relative;
+        }
+
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 20px;
+            background: #34495e;
+            border-top: 2px solid rgba(255,255,255,0.1);
+        }
+
+        input {
+            flex: 1;
+            padding: 15px 25px;
+            border: none;
+            border-radius: 30px;
+            background: #2c3e50;
+            color: var(--text-light);
+            font-size: 16px;
+            margin-right: 15px;
+        }
+
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 15px;
+        }
+
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes messageSlide {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="loading" id="loading">
+            <div class="spinner">han lora</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type your message or code request...">
+            <button onclick="sendMessage()">
+               
+                
+                  <i class="fa-solid fa-paper-plane"></i>
+                
+               
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/prism.min.js"></script>
+    <script>
+        const API_KEY = 'AIzaSyAjUYk5Xx-POxqMHEKRPSvzIgVcvmS2wXg';
+        const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + API_KEY;
+
+        async function sendMessage() {
+            const input = document.getElementById('userInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage(message, 'user');
+            input.value = '';
+            showLoading(true);
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{ text: message }]
+                        }]
+                    })
+                });
+
+                if (!response.ok) throw new Error('API request failed');
+                
+                const data = await response.json();
+                const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || 
+                               "SORRY !!.. I couldn't process that request. Please try again.";
+                
+                const formattedText = formatCodeBlocks(rawText);
+                addMessage(formattedText, 'bot');
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage("Please try again ,Check Internet connection ...!!!", 'bot');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function formatCodeBlocks(text) {
+            // Detect code blocks and format them
+            return text.replace(/```([\s\S]*?)```/g, (match, code) => {
+                const langMatch = code.match(/^\s*\w+/);
+                const lang = langMatch ? `language-${langMatch[0].trim()}` : '';
+                return `
+                    <div class="code-block">
+                        <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                        <pre><code class="${lang}">${Prism.highlight(
+                            code.replace(/^\s*\w+\s*/, ''),
+                            Prism.languages[lang.replace('language-', '') || Prism.languages.text],
+                            lang
+                        )}</code></pre>
+                    </div>
+                `;
+            });
+        }
+
+        function copyCode(button) {
+            const code = button.nextElementSibling.textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                button.textContent = 'Copied!';
+                setTimeout(() => button.textContent = 'Copy', 2000);
+            });
+        }
+
+        function addMessage(content, sender) {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.innerHTML = content;
+            
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            // Highlight any new code blocks
+            Prism.highlightAllUnder(messageDiv);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Handle Enter key
+        document.getElementById('userInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>
